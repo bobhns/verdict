@@ -1,0 +1,289 @@
+name: Tool Calling Accuracy
+version: 1.0.0
+description: |
+  Evaluates tool selection accuracy and parameter extraction for agent workflows.
+  
+  Based on production feedback (GitHub issue #7, @m13v):
+  - Tool selection is the most critical metric (wrong tool = unrecoverable)
+  - Models vary wildly: Qwen2.5 vs Llama3 vs Mistral have very different accuracy
+  - Common failure: calls plausible but wrong tool (e.g., click instead of type)
+  - Parameter errors are less critical than tool selection errors
+  
+  Scoring:
+  - Correct tool + correct params: 10/10
+  - Correct tool + wrong params: 6/10 (recoverable)
+  - Wrong tool: 2/10 (unrecoverable in production)
+  - No tool called: 0/10
+
+cases:
+  # Single-tool selection (simplest)
+  - id: tool-001-weather
+    prompt: "What's the weather in San Francisco?"
+    tools:
+      - type: function
+        function:
+          name: get_weather
+          description: "Get current weather for a city"
+          parameters:
+            type: object
+            required: [city]
+            properties:
+              city:
+                type: string
+                description: "City name"
+    scorer: tool_call
+    expected_tool: get_weather
+    expected_args:
+      city: "San Francisco"
+    criteria: "Must call get_weather with correct city name"
+
+  # Parameter extraction precision
+  - id: tool-002-parameters
+    prompt: "Calculate 25 multiplied by 4"
+    tools:
+      - type: function
+        function:
+          name: calculator
+          description: "Perform mathematical calculations"
+          parameters:
+            type: object
+            required: [expression]
+            properties:
+              expression:
+                type: string
+                description: "Math expression to evaluate"
+    scorer: tool_call
+    expected_tool: calculator
+    expected_args:
+      expression: "25 * 4"
+    criteria: "Must extract exact expression from natural language"
+
+  # Multi-tool scenario (wrong tool selection)
+  - id: tool-003-selection
+    prompt: "Click the submit button"
+    tools:
+      - type: function
+        function:
+          name: click_element
+          description: "Click a UI element"
+          parameters:
+            type: object
+            required: [selector]
+            properties:
+              selector: { type: string }
+      - type: function
+        function:
+          name: type_text
+          description: "Type text into an input field"
+          parameters:
+            type: object
+            required: [selector, text]
+            properties:
+              selector: { type: string }
+              text: { type: string }
+      - type: function
+        function:
+          name: navigate
+          description: "Navigate to a URL"
+          parameters:
+            type: object
+            required: [url]
+            properties:
+              url: { type: string }
+    scorer: tool_call
+    expected_tool: click_element
+    expected_args:
+      selector: "submit"
+    criteria: "Must select click_element, not type_text (common confusion)"
+
+  # Parameter precision with multiple args
+  - id: tool-004-multi-params
+    prompt: "Send an email to alice@example.com with subject 'Meeting' and body 'See you at 3pm'"
+    tools:
+      - type: function
+        function:
+          name: send_email
+          description: "Send an email"
+          parameters:
+            type: object
+            required: [to, subject, body]
+            properties:
+              to: { type: string, description: "Recipient email" }
+              subject: { type: string, description: "Email subject" }
+              body: { type: string, description: "Email body" }
+    scorer: tool_call
+    expected_tool: send_email
+    expected_args:
+      to: "alice@example.com"
+      subject: "Meeting"
+      body: "See you at 3pm"
+    criteria: "Must extract all three parameters correctly"
+
+  # Tool selection with similar tools (confusability test)
+  - id: tool-005-similar-tools
+    prompt: "Read the contents of config.json"
+    tools:
+      - type: function
+        function:
+          name: read_file
+          description: "Read the contents of a file"
+          parameters:
+            type: object
+            required: [path]
+            properties:
+              path: { type: string }
+      - type: function
+        function:
+          name: write_file
+          description: "Write contents to a file"
+          parameters:
+            type: object
+            required: [path, content]
+            properties:
+              path: { type: string }
+              content: { type: string }
+      - type: function
+        function:
+          name: list_files
+          description: "List files in a directory"
+          parameters:
+            type: object
+            required: [directory]
+            properties:
+              directory: { type: string }
+    scorer: tool_call
+    expected_tool: read_file
+    expected_args:
+      path: "config.json"
+    criteria: "Must select read_file, not write_file or list_files"
+
+  # Implicit parameter extraction
+  - id: tool-006-implicit-params
+    prompt: "Search for recent articles about AI"
+    tools:
+      - type: function
+        function:
+          name: web_search
+          description: "Search the web"
+          parameters:
+            type: object
+            required: [query]
+            properties:
+              query: { type: string, description: "Search query" }
+              time_range: { type: string, description: "Time filter: day, week, month, year" }
+    scorer: tool_call
+    expected_tool: web_search
+    expected_args:
+      query: "articles about AI"
+      time_range: "week"
+    criteria: "Must extract 'recent' as time_range parameter"
+
+  # No-tool scenario (model should not hallucinate tools)
+  - id: tool-007-no-hallucination
+    prompt: "What is 2+2?"
+    tools:
+      - type: function
+        function:
+          name: calculator
+          description: "Perform complex mathematical calculations"
+          parameters:
+            type: object
+            required: [expression]
+            properties:
+              expression: { type: string }
+    scorer: llm  # Not tool_call - we DON'T want it to call the tool for simple math
+    criteria: "Should answer directly without calling calculator for trivial math"
+
+  # Production scenario: desktop automation (from @m13v feedback)
+  - id: tool-008-desktop-automation
+    prompt: "Type 'hello world' into the search box"
+    tools:
+      - type: function
+        function:
+          name: click_element
+          description: "Click a UI element by selector"
+          parameters:
+            type: object
+            required: [selector]
+            properties:
+              selector: { type: string, description: "CSS selector or element description" }
+      - type: function
+        function:
+          name: type_text
+          description: "Type text into an input field"
+          parameters:
+            type: object
+            required: [selector, text]
+            properties:
+              selector: { type: string, description: "Input field selector" }
+              text: { type: string, description: "Text to type" }
+      - type: function
+        function:
+          name: press_key
+          description: "Press a keyboard key"
+          parameters:
+            type: object
+            required: [key]
+            properties:
+              key: { type: string, description: "Key name (e.g., Enter, Escape)" }
+    scorer: tool_call
+    expected_tool: type_text
+    expected_args:
+      selector: "search box"
+      text: "hello world"
+    criteria: "Must use type_text, not click_element (common production error per @m13v)"
+
+  # Parameter type sensitivity
+  - id: tool-009-type-precision
+    prompt: "Set volume to 75 percent"
+    tools:
+      - type: function
+        function:
+          name: set_volume
+          description: "Set system volume"
+          parameters:
+            type: object
+            required: [level]
+            properties:
+              level: { type: number, description: "Volume level 0-100" }
+    scorer: tool_call
+    expected_tool: set_volume
+    expected_args:
+      level: 75
+    criteria: "Must extract 75 as number, not string '75'"
+
+  # Multi-step tool sequence (ordered)
+  - id: tool-010-sequence
+    prompt: "Open calculator app and compute 5+3"
+    tools:
+      - type: function
+        function:
+          name: open_app
+          description: "Launch an application"
+          parameters:
+            type: object
+            required: [app_name]
+            properties:
+              app_name: { type: string }
+      - type: function
+        function:
+          name: calculator
+          description: "Perform calculation"
+          parameters:
+            type: object
+            required: [expression]
+            properties:
+              expression: { type: string }
+    scorer: tool_call
+    expected_tool: open_app
+    expected_args:
+      app_name: "calculator"
+    criteria: "Must call open_app FIRST (note: sequence ordering not yet scored, tracks tool-001 only)"
+
+# Note on multi-step sequences:
+# Per @m13v feedback, tool call ORDERING is critical in production but not yet
+# implemented in scorer: tool_call. Future enhancement: scorer: tool_sequence
+# that validates call order and dependencies.
+#
+# Example failure mode: clicking a button before page loads (silently fails).
+# Requires: call navigate(), WAIT, THEN call click_element().
