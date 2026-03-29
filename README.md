@@ -7,17 +7,18 @@ verdict run
 
 Models: qwen2.5:7b, llama3.2:3b, sonnet
 Judge:  haiku
-Cases:  25 across 3 packs
+Cases:  25 across 3 pack(s)
 
-[1] qwen2.5:7b           ||||||||||  8.7  Fast, accurate, great for code
-[2] claude-sonnet        |||||||||.  8.4  Best reasoning, 10x cost
-[3] llama3.2:3b          |||||||...  7.1  Good for simple tasks
+Model                Score  Acc   Comp  Conc  Latency    Cost       Win%
+──────────────────────────────────────────────────────────────────────────
+[1] qwen2.5:7b       8.7    8.5   8.9   8.2   1.2s       free       68%
+[2] sonnet            8.4    9.1   8.4   8.1   3.5s       $0.0234    58%
+[3] llama3.2:3b       7.1    7.2   7.1   7.0   0.8s       free       35%
 
-Winner: qwen2.5:7b (8.7/10, $0.00)
+Cost-quality frontier
+qwen2.5:7b matches sonnet within 0.3pts. Use the free model.
 
-💡 Cost-quality frontier:
-   qwen2.5:7b matches sonnet within 0.3pts for FREE
-   → Use the local model, save $50/mo
+Winner: qwen2.5:7b (8.7/10, 18 wins)
 ```
 
 ---
@@ -27,18 +28,18 @@ Winner: qwen2.5:7b (8.7/10, $0.00)
 ### The Problem
 
 You're choosing between models based on:
-- ❌ Generic benchmarks (MMLU, HellaSwag) that don't match your work
-- ❌ Vibes and anecdotes ("Model X feels better")
-- ❌ Expensive trial and error in production
+- Generic benchmarks (MMLU, HellaSwag) that don't match your work
+- Vibes and anecdotes ("Model X feels better")
+- Expensive trial and error in production
 
 ### The Solution
 
 **Verdict runs YOUR tasks against ANY models and tells you which wins.**
 
-- ✅ Test local vs cloud on tasks that matter to you
-- ✅ Catch quality regressions (2-bit quantization broke JSON? You'll know)
-- ✅ Make data-driven decisions (not vibes)
-- ✅ One config file, runs anywhere, zero cloud dependency
+- Test local vs cloud on tasks that matter to you
+- Catch quality regressions (2-bit quantization broke JSON? You'll know)
+- Make data-driven decisions (not vibes)
+- One config file, runs anywhere, zero cloud dependency
 
 ---
 
@@ -48,7 +49,7 @@ You're choosing between models based on:
 
 ```bash
 npm install -g verdict
-# or
+# or run directly
 npx verdict init
 ```
 
@@ -91,12 +92,14 @@ verdict run --dry-run
 
 ### 1. Leaderboard
 
-Which model won on your tasks?
+Ranked models with scores across accuracy, completeness, conciseness, latency, cost, and win rate:
 
 ```
-[1] qwen2.5:7b           ||||||||||  8.7  (18 wins)
-[2] claude-sonnet        |||||||||.  8.4  (15 wins)
-[3] llama3.2:3b          |||||||...  7.1  (8 wins)
+Model                Score  Acc   Comp  Conc  Latency    Cost       Win%
+──────────────────────────────────────────────────────────────────────────
+[1] qwen2.5:7b       8.7    8.5   8.9   8.2   1.2s       free       68%
+[2] sonnet            8.4    9.1   8.4   8.1   3.5s       $0.0234    58%
+[3] llama3.2:3b       7.1    7.2   7.1   7.0   0.8s       free       35%
 ```
 
 ### 2. Cost-Quality Frontier
@@ -104,31 +107,32 @@ Which model won on your tasks?
 Is paying for cloud worth it?
 
 ```
-💡 qwen2.5:7b matches sonnet within 0.3pts for FREE
-   → Save $50/month, use local
+Cost-quality frontier
+qwen2.5:7b matches sonnet within 0.3pts. Use the free model.
 ```
 
-### 3. Detailed Breakdown
+### 3. Per-Case Detail
 
-See every prompt, response, and score:
+See every prompt and per-model score with judge reasoning:
 
 ```
-[Code Generation Pack]
-  Task: "Write a function to parse CSV"
-  
-  qwen2.5:7b     → 9/10  ✅ Handles edge cases, clean code
-  llama3.2:3b    → 7/10  ⚠️  Works but missing error handling
-  claude-sonnet  → 9/10  ✅ Perfect, but costs $0.02
+[case-001] "Write a function to parse CSV..."
+    qwen2.5:7b             ||||||||||  9.2  Handles edge cases, clean code
+    llama3.2:3b            |||||||...  7.0  Works but missing error handling
+    sonnet                 |||||||||.  9.1  Correct with good structure
 ```
 
-### 4. Regression Detection
+### 4. Baseline Regression Detection
 
 Quantized a model? See what broke:
 
 ```
-❌ qwen2.5:2bit failed 8/10 tool-calling tests
-   → JSON output format changed (single quotes)
-   → Recommend: Use 4-bit instead
+Baseline comparison (vs "production-v1")
+────────────────────────────────────────────────────────
+↑ qwen2.5:7b               8.5 → 8.7  +0.20 (+2.4%)
+↓ qwen2.5:2bit             7.2 → 4.1  -3.10 (-43.1%)  REGRESSION
+
+REGRESSION ALERT: One or more models dropped > 0.5pts vs baseline
 ```
 
 ---
@@ -139,33 +143,33 @@ Quantized a model? See what broke:
 
 | Provider | Status | Auto-Discovery | Notes |
 |----------|--------|----------------|-------|
-| **Ollama** | ✅ Full | Yes | Any model, any host, MoE detection |
-| **MLX** | ✅ Full | Yes | Apple Silicon optimized |
-| **LM Studio** | ✅ Compatible | Coming | Works via localhost:1234 |
-| **llama.cpp** | ✅ Compatible | Coming | Any OpenAI-compat server |
+| **Ollama** | Full | Yes | Any model, any host, MoE detection |
+| **MLX** | Full | Yes | Apple Silicon optimized |
+| **LM Studio** | Compatible | Coming | Works via localhost:1234 |
+| **llama.cpp** | Compatible | Coming | Any OpenAI-compat server |
 
 ### Cloud Models
 
 | Provider | Status | One-Liner Setup |
 |----------|--------|-----------------|
-| **OpenRouter** | ✅ | One key = 200+ models |
-| **OpenAI** | ✅ | Direct integration |
-| **Anthropic** | ✅ | Via OpenRouter or proxy |
-| **Groq** | ✅ | Direct (ultra-fast) |
-| **Mistral** | ✅ | Direct |
-| **Any OpenAI API** | ✅ | `base_url` + `api_key` |
+| **OpenRouter** | Supported | One key = 200+ models |
+| **OpenAI** | Supported | Direct integration |
+| **Anthropic** | Supported | Via OpenRouter or proxy |
+| **Groq** | Supported | Direct (ultra-fast) |
+| **Mistral** | Supported | Direct |
+| **Any OpenAI API** | Supported | `base_url` + `api_key` |
 
 **The judge can be any model** - including a local one. No cloud required!
 
 ---
 
-## Example: Should I Pay for Sonnet?
+## Example: Comparing Local vs Cloud
 
 ### Your Task
 
 You write TypeScript code daily. Should you use:
-- 🆓 qwen2.5:7b (local, free)
-- 💰 claude-sonnet ($3/million tokens)
+- qwen2.5:7b (local, free)
+- claude-sonnet ($3/million tokens)
 
 ### Create Eval Pack
 
@@ -175,14 +179,14 @@ name: Daily TypeScript Work
 cases:
   - prompt: "Write a function to debounce API calls"
     judge_criteria: "Code quality, edge cases, TypeScript types"
-  
+
   - prompt: "Refactor this into async/await"
     context: |
       function getData(callback) {
         fetch('/api').then(r => callback(r))
       }
     judge_criteria: "Clean code, error handling"
-  
+
   - prompt: "Debug: Why is this useState not updating?"
     context: |
       const [items, setItems] = useState([]);
@@ -196,24 +200,7 @@ cases:
 verdict run --pack my-coding
 ```
 
-### Results
-
-```
-[1] qwen2.5:7b           ||||||||||  8.9  ($0.00, 850ms avg)
-[2] claude-sonnet        |||||||||.  9.1  ($0.15, 1200ms avg)
-
-💡 Cost-quality frontier:
-   qwen2.5:7b scores 8.9/10 for FREE
-   sonnet scores 9.1/10 but costs $0.15/run
-   
-   → Difference: 0.2pts
-   → You run ~500 prompts/month
-   → Switching to sonnet = $75/month for 0.2pt gain
-   
-   Decision: Use qwen2.5:7b, save $900/year
-```
-
-**Data-driven decision made!** ✅
+Results include the leaderboard, per-case scores, cost-quality frontier, and a winner declaration — your scores will vary based on your tasks and models.
 
 ---
 
@@ -231,7 +218,7 @@ models:
   - id: qwen-4bit
     provider: ollama
     model: qwen2.5:7b
-  
+
   - id: qwen-2bit
     provider: ollama
     model: qwen2.5:2bit
@@ -243,21 +230,7 @@ models:
 verdict run --models "qwen-4bit,qwen-2bit"
 ```
 
-### Results
-
-```
-Tool Calling Pack (10 cases)
-
-qwen-4bit:  10/10 ✅ All JSON valid
-qwen-2bit:   2/10 ❌ 8 failed (JSON parse errors)
-
-Example failure:
-  Expected: {"tool": "search", "query": "cats"}
-  Got:      {'tool': 'search', 'query': 'cats'}
-            ^ single quotes = invalid JSON
-
-Verdict: 2-bit broke tool calling. Use 4-bit.
-```
+Compare scores in the leaderboard output to see exactly where quality dropped. Use `verdict baseline save` and `verdict baseline compare` to track regressions over time.
 
 ---
 
@@ -272,13 +245,13 @@ models:
     provider: ollama
     model: qwen2.5:7b
     base_url: http://localhost:11434  # optional
-  
+
   # Cloud models (OpenRouter)
   - id: sonnet
     provider: openrouter
     model: anthropic/claude-sonnet-4
     api_key: ${OPENROUTER_KEY}
-  
+
   # Cloud models (direct)
   - id: gpt4
     provider: openai
@@ -311,7 +284,7 @@ judge_criteria: |
 cases:
   - prompt: "Write a function to deep clone an object"
     expected_behavior: "Handles nested objects, arrays, null"
-  
+
   - prompt: |
       Fix this bug:
       const data = [1,2,3];
@@ -324,40 +297,17 @@ cases:
 
 ## Advanced Features
 
-### 1. Model Router (New! 🎉)
+### 1. Model Router
 
-**Automatically choose the best model for each task.**
+**Automatically choose the best model for each task based on eval history.**
 
-```typescript
-import { VerdictRouter } from 'verdict';
-
-const router = new VerdictRouter('./verdict.db');
-
-// Routes to best model based on task type
-const result = await router.route(
-  "Debug this memory leak in React"
-);
-
-console.log(`Using: ${result.choice.model}`);
-// → "Using: qwen2.5:7b (code-generation specialist)"
+```bash
+verdict route "Debug this memory leak in React"
+# → routing to qwen2.5:7b (8.7/10)
+#   Best match for coding tasks; lowest latency
 ```
 
-**Features:**
-- ✅ Learns from eval results (which model wins for which tasks?)
-- ✅ Auto-classifies tasks (code, reasoning, tool-calling, creative)
-- ✅ Balances quality, cost, and speed
-- ✅ DSPy-optimized routing (60% accuracy, improving with data)
-
-**Shadow Mode** - Test new routing logic safely:
-```typescript
-const router = new VerdictRouter('./verdict.db', {
-  shadowMode: true  // Logs both routers, uses primary
-});
-
-// After 100 decisions:
-const stats = router.getShadowStats();
-console.log(`Agreement: ${stats.agreement_rate}`);
-```
+The router learns from eval results — which model wins for which task types — and auto-classifies incoming prompts to pick the best match.
 
 ### 2. Baseline Comparison
 
@@ -370,8 +320,6 @@ verdict baseline save v1.0
 # Later, compare new run to baseline
 verdict run
 verdict baseline compare v1.0
-
-# → qwen2.5:7b improved +0.8pts since v1.0
 ```
 
 ### 3. Custom Judges
@@ -400,33 +348,61 @@ models:
       temperature: 0.1  # More deterministic
 ```
 
+### 5. JSON Output for CI/CD
+
+```bash
+verdict run --json 2>/dev/null > results.json
+```
+
+All informational output goes to stderr; stdout gets structured JSON with full results, summaries, and synthesis.
+
+### 6. OpenAI-Compatible Proxy
+
+```bash
+verdict serve --port 4000
+```
+
+Starts an HTTP proxy that routes requests to the best model using `model: "auto"` or task type hints like `model: "auto:reasoning"`.
+
 ---
 
 ## CLI Reference
 
 ```bash
 # Setup
-verdict init                  # Create verdict.yaml + eval-packs/
-verdict models                # Ping all configured models
-verdict models discover       # Find Ollama/MLX models
+verdict init                        # Create verdict.yaml + eval-packs/
+verdict validate                    # Check config for errors without running evals
+verdict models                      # Ping all configured models
+verdict models discover             # Find Ollama/MLX models
 
 # Run evals
-verdict run                   # Run all packs, all models
-verdict run -p code-gen       # Run specific pack
-verdict run -m "qwen,sonnet"  # Test specific models
-verdict run --dry-run         # Preview (no API calls)
-verdict run --resume          # Resume from checkpoint
+verdict run                         # Run all packs, all models
+verdict run -p code-gen             # Run specific pack
+verdict run -m "qwen,sonnet"        # Test specific models
+verdict run --dry-run               # Preview (no API calls)
+verdict run --resume                # Resume from checkpoint
+verdict run --question "Which is best for code?"  # Ask synthesis question
+verdict run --json                  # Output JSON to stdout (for CI/CD)
+verdict run --category reasoning    # Filter cases by category
 
-# Compare models
-verdict compare               # Head-to-head comparison UI
+# Compare
+verdict compare <run-a> <run-b>     # Compare two result JSON files
 
 # Baselines
-verdict baseline save v1.0    # Save current as baseline
-verdict baseline list         # Show saved baselines
-verdict baseline compare v1   # Compare to baseline
+verdict baseline save v1.0          # Save current as baseline
+verdict baseline list               # Show saved baselines
+verdict baseline compare v1         # Compare to baseline
 
-# Router
-verdict infer "your prompt"   # Route single task (for testing)
+# Routing
+verdict route "your prompt"         # Route to best model based on history
+
+# Infrastructure
+verdict serve --port 4000           # OpenAI-compatible HTTP proxy
+verdict history                     # View eval history from database
+verdict watch                       # Poll for new local models
+verdict daemon start                # Start background job daemon
+verdict daemon stop                 # Stop daemon
+verdict daemon status               # Show daemon status
 ```
 
 ---
@@ -435,28 +411,19 @@ verdict infer "your prompt"   # Route single task (for testing)
 
 ### 1. Choosing Local vs Cloud
 
-**Goal:** Stop paying $200/month for API calls
+**Goal:** Stop paying for cloud API calls when a local model is good enough.
 
 **Setup:**
-- Add local model (qwen2.5:7b)
-- Add cloud model (sonnet)
-- Create eval pack from actual tasks
+- Add local model (e.g. qwen2.5:7b via Ollama)
+- Add cloud model (e.g. sonnet via OpenRouter)
+- Create eval pack from your actual daily tasks
 
-**Result:**
-```
-qwen2.5:7b: 8.5/10 ($0.00)
-sonnet:     8.7/10 ($89.00/month)
-
-→ Difference: 0.2pts
-→ Savings: $2400/year
-→ Decision: Use local
-```
+**Process:** Run `verdict run`, compare scores and cost in the leaderboard. The cost-quality frontier tells you if the local model is close enough.
 
 ### 2. Regression Testing
 
-**Goal:** Catch quality drops before users do
+**Goal:** Catch quality drops before users do.
 
-**Setup:**
 ```bash
 # Save current production model as baseline
 verdict baseline save production-v1
@@ -466,52 +433,23 @@ verdict run
 verdict baseline compare production-v1
 ```
 
-**Result:**
-```
-❌ NEW MODEL REGRESSION DETECTED
-
-Tool-calling: 9.2 → 6.1 (-3.1pts) 
-  8/10 tasks failed JSON parsing
-
-→ DO NOT DEPLOY
-→ Roll back to 4-bit
-```
+If any model drops more than 0.5pts, verdict flags a regression alert.
 
 ### 3. Cost Optimization
 
-**Goal:** Find cheapest model that meets quality bar
+**Goal:** Find cheapest model that meets your quality bar.
 
-**Setup:**
-```yaml
-models:
-  - qwen2.5:7b     # Free
-  - llama3.2:3b    # Free (faster)
-  - haiku          # $0.25/M tokens
-  - sonnet         # $3/M tokens
-```
-
-**Result:**
-```
-Quality bar: 8.0/10 minimum
-
-qwen2.5:7b:  8.3/10 ✅ ($0.00)    ← USE THIS
-llama3.2:3b: 7.1/10 ❌ (too low)
-haiku:       8.9/10 ✅ ($12/mo)
-sonnet:      9.2/10 ✅ ($89/mo)
-
-→ qwen2.5:7b meets bar, saves $1068/year vs haiku
-```
+Configure multiple models at different price points, run your eval packs, and use the leaderboard to find the cheapest model with an acceptable score.
 
 ---
 
 ## Contributing
 
 We welcome:
-- 🐛 Bug reports
-- 💡 Feature ideas
-- 📝 Eval pack templates
-- 🔧 Provider integrations
-- 📊 Real-world benchmarking results
+- Bug reports
+- Feature ideas
+- Eval pack templates
+- Provider integrations
 
 **Not currently accepting:**
 - Major architecture changes (please discuss first)
@@ -549,12 +487,13 @@ Depends on:
 
 ### Can I use this in CI/CD?
 
-Yes! Exit code non-zero if quality drops:
+Yes! Use `--json` for machine-readable output:
 
 ```bash
-verdict run --baseline production --fail-if-regression
-# → Exit 1 if new model worse than baseline
+verdict run --json 2>/dev/null | jq '.summary'
 ```
+
+Combine with `verdict baseline compare` to detect regressions.
 
 ---
 
@@ -566,20 +505,20 @@ MIT
 
 ## Links
 
-- **GitHub:** https://github.com/yourusername/verdict
-- **Docs:** https://verdict.dev
-- **Discord:** https://discord.gg/verdict
+- **GitHub:** https://github.com/hnshah/verdict
+- **Issues:** https://github.com/hnshah/verdict/issues
 
 ---
 
 ## Roadmap
 
-**Shipping Now:**
-- ✅ Model router (auto-select best model per task)
-- ✅ Shadow mode (safe A/B testing)
-- ✅ DSPy-optimized routing
+**Shipped:**
+- Model router (auto-select best model per task)
+- Baseline comparison and regression detection
+- JSON output for CI/CD
+- OpenAI-compatible proxy server
 
-**Coming Q2 2026:**
+**Coming Soon:**
 - LM Studio auto-discovery
 - Multi-judge consensus (2+ judges vote)
 - Tag-based filtering (`verdict run --tags "quick,sanity"`)
@@ -591,11 +530,11 @@ MIT
 - Dataset generation (create eval packs from logs)
 - Model fine-tuning integration (eval → retrain loop)
 
-Vote on features: https://github.com/yourusername/verdict/discussions
+Vote on features: https://github.com/hnshah/verdict/discussions
 
 ---
 
-**Built with ❤️ by developers tired of guessing which model to use.**
+**Built by developers tired of guessing which model to use.**
 
 *Stop vibes-based model selection. Start making data-driven decisions.*
 
